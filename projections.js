@@ -1,3 +1,5 @@
+Projections = {};
+
 
 if(!_.mapObject) {
 	_.mixin({
@@ -23,8 +25,8 @@ _.mixin({
 	},
 });
 
-var getFieldValue = function(obj, field) {
-	return _.reduce(field.split('.'), function(value, key) {
+var get = function(obj, path) {
+	return _.reduce(path.split('.'), function(value, key) {
 		if (_.isObject(value) && _.isFunction(value[key])) {
 			return value[key]();
 		} else if (_.isObject(value) && !_.isUndefined(value[key])) {
@@ -35,24 +37,30 @@ var getFieldValue = function(obj, field) {
 	}, obj);
 };
 
-var makeRowDoc = function(doc, fields, extend) {
-	var row = _.mapObject(fields, function(fieldOptions, fieldKey) {
+var transformWithFieldsObject = function(fields, doc) {
+	var row = _.mapObject(fields, function(fieldValue, fieldKey) {
 		var value;
-		if(_.isFunction(fieldOptions.value)) {
-			value = fieldOptions.value(getFieldValue(doc, fieldKey), doc);
-		} else if(_.isString(fieldOptions.value)) {
-			value = getFieldValue(doc, fieldOptions.value);
+		if(_.isFunction(fieldValue)) {
+			value = fieldValue.call(doc, get(doc, fieldKey), doc);
+		} else if(_.isString(fieldValue)) {
+			value = get(doc, fieldValue);
 		} else {
-			value = getFieldValue(doc, fieldKey);
+			value = get(doc, fieldKey);
 		}
-		return value
+		return value;
 	});
-	row._id = doc._id;
-	_.extend(row, extend || {});
 	return row;
 };
 
-ProjectedDocument = function(doc) {
+_.extend(Mongo.Collection.prototype, {
+	find: _.wrap(Mongo.Collection.prototype.find, function(f) {
+		var result = f.apply(this, _.rest(arguments));
+		if(_.isObject(result)) result._mongoCollection = this;
+		return result;
+	}),
+});
+
+ProjectedDocument = Projections.ProjectedDocument = function(doc) {
 	_.extend(this, doc);
 }
 
@@ -68,13 +76,12 @@ _.extend(ProjectedDocument.prototype, {
 	},
 });
 
-var transform = function(doc) {
+var defaultTransform = function(doc) {
 	return new ProjectedDocument(doc);
 };
 
 var instances = [];
 
-Projections = {};
 
 Projections.Collection = Mongo.Projection = function(sourceCursor, options) {
 	var self = this;
@@ -85,9 +92,23 @@ Projections.Collection = Mongo.Projection = function(sourceCursor, options) {
 
 	//Default options
 	options = _.defaults(options || {}, {
-		fields: {},
+
 	});
-	options.fields = _.omit(options.fields, ['_id', '_projectionCollectionId']);
+	options.projection = options.projection || options.fields;
+	if(_.isFunction(options.projection)) {
+		self._projection = options.projection;
+	} else if(_.isObject(options.projection)) {
+		self._fields = _.omit(options.projection, ['_id', '_projectionCollectionId']);
+		self._projection = _.partial(transformWithFieldsObject, self._fields);
+	} else {
+		self._projection = _.identity;
+	}
+
+	if(options.transform || options.transform === null) {
+		self._transformOut = options.transform;
+	} else {
+		self._transformOut = defaultTransform;
+	}
 
 	//Set up sourceCursor reactivity
 	self._sourceCursorDep = new Tracker.Dependency();
@@ -100,8 +121,8 @@ Projections.Collection = Mongo.Projection = function(sourceCursor, options) {
 		self._sourceCursor = sourceCursor;
 	}
 
-	var collection = self._collection = new Mongo.Collection(null, {transform: transform});
-	var fields = options.fields;
+	var collection = self._collection = new Mongo.Collection(null, {transform: self._transformOut});
+	var transformIn = self._projection;
 
 	Tracker.autorun(function() {
 		if(self._computations) {
@@ -118,13 +139,13 @@ Projections.Collection = Mongo.Projection = function(sourceCursor, options) {
 				var _id = doc._id;
 				self._computations[_id] = Tracker.autorun(function(c) {
 					var doc = sourceCollection.findOne(_id, {transform: sourceTransform});
-					var rowDoc = makeRowDoc(doc, fields, {
+					var rowDoc = _.extend(transformIn(doc), {
 						_projectionCollectionId: self._id,
 					});
 					if(c.firstRun) {
+						rowDoc._id = _id;
 						collection.insert(_.setProps({}, rowDoc));
 					} else {
-						delete rowDoc._id;
 						collection.update(_id, _.setProps({}, rowDoc));
 					}
 				});
@@ -154,6 +175,6 @@ _.extend(Projections.Collection.prototype, {
 		return this.sourceCursor().getTransform();
 	},
 	sourceCollection: function() {
-		return this.sourceCursor().collection;
+		return this.sourceCursor()._mongoCollection;
 	},
 });
