@@ -1,18 +1,20 @@
 Package.describe({
   name: 'jeanfredrik:projections',
-  version: '0.0.1',
-  // Brief, one-line summary of the package.
-  summary: '',
-  // URL to the Git repository containing the source code for this package.
-  git: '',
-  // By default, Meteor will default to using README.md for documentation.
-  // To avoid submitting documentation, set this field to null.
+  version: '0.1.0',
+  summary: 'Turn a cursor into a local collection',
+  git: 'https://github.com/jeanfredrik/meteor-projections.git',
   documentation: 'README.md'
 });
 
 Package.onUse(function(api) {
-  api.versionsFrom('1.1.0.2');
-  api.addFiles('projections.js');
+  api.versionsFrom('1.1');
+  api.use([
+    'underscore',
+    'tracker',
+    'mongo',
+  ]);
+  api.addFiles('projections.js', 'client');
+  api.export('Projections');
 });
 
 Package.onTest(function(api) {
