@@ -1,8 +1,8 @@
-#Projections
+# Projections
 
 This package allows you to create collections from your cursors. ”Why would I want to do that”, you might ask. Let me show you an example.
 
-##Example
+## Example
 
 Let's say you have a collection of blog posts called `Posts` and you store which users have liked the post by storing a list of user IDs in each post document, like this:
 
@@ -45,12 +45,12 @@ Which gives you this:
 {_id: 'tryxTtPjgD6kj6gNH', likesCount: 1}
 ```
 
-##Documentation
+## Documentation
 
-###new Projections.Collection(cursor, [options])
+### new Projections.Collection(cursor, [options])
 Constructs a new collection based on `cursor`.
 
-####cursor
+#### cursor
 A `Mongo.Cursor` instance returned by `collection.find` or a function that returns such a cursor. Provide a function if you want to use reactive functions a s part of the cursors query, for example:
 
 ```javascript
@@ -61,7 +61,7 @@ PostsByMe = new Projections.Collection(function() {
 });
 ```
 
-####options
+#### options
 Available options are:
 
 - `projection`: An object specifying fields that the documents in this collection will have (see "Fields specifier" below), or a map function that will be run on each document. The function recieves the source document as the first argument and should return a new object that will be inserted into the new collection. Example:
@@ -77,7 +77,7 @@ Available options are:
 
 - `transform`: Similar to the `transform` option of `new Mongo.Collection`, this option specifies how documents will be transformed when they are retrieved from this collection with `find()` och `findOne()`.
 
-####Fields specifier
+#### Fields specifier
 The projection option can be is a dictionary whose keys are field names and whose values are either a function, a string or `1`, depending on what effect you want:
 
 ```javascript

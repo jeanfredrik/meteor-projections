@@ -1,9 +1,8 @@
 Package.describe({
   name: 'jeanfredrik:projections',
   version: '0.1.0',
-  summary: 'Turn a cursor into a local collection',
-  git: 'https://github.com/jeanfredrik/meteor-projections.git',
-  documentation: 'README.md'
+  summary: 'Turn a cursor into a collection.',
+  git: 'https://github.com/jeanfredrik/meteor-projections.git'
 });
 
 Package.onUse(function(api) {
